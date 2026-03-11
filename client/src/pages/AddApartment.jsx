@@ -3,10 +3,14 @@ import { useNavigate } from 'react-router-dom'
 import { api } from '../api'
 import { useAuth } from '../context/AuthContext'
 
+const PROPERTY_TYPES = ['Apartment', 'Loft', 'Townhouse', 'Studio', 'Condo', 'House']
+
 export default function AddApartment() {
   const { user } = useAuth()
   const navigate = useNavigate()
-  const [form, setForm] = useState({ name: '', address: '', neighborhood: '', price: '', beds: '', baths: '' })
+  const [form, setForm] = useState({
+    name: '', street_address: '', city: '', state: '', zip_code: '', property_type: '', year_built: ''
+  })
   const [error, setError] = useState('')
   const [loading, setLoading] = useState(false)
 
@@ -22,11 +26,12 @@ export default function AddApartment() {
     try {
       const data = {
         name: form.name,
-        address: form.address,
-        neighborhood: form.neighborhood,
-        price: Number(form.price),
-        ...(form.beds && { beds: Number(form.beds) }),
-        ...(form.baths && { baths: Number(form.baths) }),
+        street_address: form.street_address,
+        city: form.city,
+        state: form.state,
+        zip_code: form.zip_code,
+        ...(form.property_type && { property_type: form.property_type }),
+        ...(form.year_built && { year_built: Number(form.year_built) }),
       }
       const result = await api.createApartment(data)
       navigate(`/apartments/${result.id}`)
@@ -54,30 +59,39 @@ export default function AddApartment() {
               className="input" placeholder="e.g. Sunny Heights" required />
           </label>
           <label>
-            Address
-            <input type="text" value={form.address} onChange={e => update('address', e.target.value)}
+            Street Address
+            <input type="text" value={form.street_address} onChange={e => update('street_address', e.target.value)}
               className="input" placeholder="e.g. 412 Park Ave" required />
-          </label>
-          <label>
-            Neighborhood
-            <input type="text" value={form.neighborhood} onChange={e => update('neighborhood', e.target.value)}
-              className="input" placeholder="e.g. Downtown" required />
-          </label>
-          <label>
-            Monthly Rent ($)
-            <input type="number" value={form.price} onChange={e => update('price', e.target.value)}
-              className="input" placeholder="e.g. 1500" required min="1" />
           </label>
           <div className="form-row-inline">
             <label>
-              Beds
-              <input type="number" value={form.beds} onChange={e => update('beds', e.target.value)}
-                className="input" placeholder="—" min="0" max="20" />
+              City
+              <input type="text" value={form.city} onChange={e => update('city', e.target.value)}
+                className="input" placeholder="e.g. New York" required />
             </label>
             <label>
-              Baths
-              <input type="number" value={form.baths} onChange={e => update('baths', e.target.value)}
-                className="input" placeholder="—" min="0" max="20" />
+              State
+              <input type="text" value={form.state} onChange={e => update('state', e.target.value)}
+                className="input" placeholder="e.g. NY" required maxLength={2} />
+            </label>
+          </div>
+          <label>
+            Zip Code
+            <input type="text" value={form.zip_code} onChange={e => update('zip_code', e.target.value)}
+              className="input" placeholder="e.g. 10001" required />
+          </label>
+          <div className="form-row-inline">
+            <label>
+              Property Type
+              <select value={form.property_type} onChange={e => update('property_type', e.target.value)} className="input">
+                <option value="">— Optional —</option>
+                {PROPERTY_TYPES.map(t => <option key={t} value={t}>{t}</option>)}
+              </select>
+            </label>
+            <label>
+              Year Built
+              <input type="number" value={form.year_built} onChange={e => update('year_built', e.target.value)}
+                className="input" placeholder="e.g. 1995" min="1800" max="2100" />
             </label>
           </div>
           <button type="submit" className="btn btn-full" disabled={loading}>
