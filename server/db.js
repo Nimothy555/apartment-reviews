@@ -1,5 +1,6 @@
 const sqlite3 = require('sqlite3').verbose()
 const path = require('path')
+const fs = require('fs')
 
 const db = new sqlite3.Database(path.join(__dirname, 'rentwise.db'), (err) => {
   if (err) console.error('Database error:', err)
@@ -7,126 +8,12 @@ const db = new sqlite3.Database(path.join(__dirname, 'rentwise.db'), (err) => {
 })
 
 function createTables() {
-  db.serialize(() => {
-    db.run('PRAGMA foreign_keys = ON')
-
-    db.run(`CREATE TABLE IF NOT EXISTS users (
-      id INTEGER PRIMARY KEY AUTOINCREMENT,
-      first_name TEXT NOT NULL,
-      last_name TEXT NOT NULL,
-      email TEXT UNIQUE NOT NULL,
-      password TEXT NOT NULL,
-      is_verified INTEGER DEFAULT 0,
-      created_at DATETIME DEFAULT CURRENT_TIMESTAMP
-    )`)
-
-    db.run(`CREATE TABLE IF NOT EXISTS apartments (
-      id INTEGER PRIMARY KEY AUTOINCREMENT,
-      name TEXT NOT NULL,
-      street_address TEXT NOT NULL,
-      city TEXT NOT NULL,
-      state TEXT NOT NULL,
-      zip_code TEXT NOT NULL,
-      property_type TEXT,
-      year_built INTEGER,
-      created_at DATETIME DEFAULT CURRENT_TIMESTAMP
-    )`)
-
-    db.run(`CREATE TABLE IF NOT EXISTS amenities (
-      id INTEGER PRIMARY KEY AUTOINCREMENT,
-      name TEXT NOT NULL
-    )`)
-
-    db.run(`CREATE TABLE IF NOT EXISTS apartment_amenities (
-      apartment_id INTEGER REFERENCES apartments(id),
-      amenities_id INTEGER REFERENCES amenities(id),
-      PRIMARY KEY (apartment_id, amenities_id)
-    )`)
-
-    db.run(`CREATE TABLE IF NOT EXISTS verifications (
-      id INTEGER PRIMARY KEY AUTOINCREMENT,
-      user_id INTEGER NOT NULL REFERENCES users(id),
-      apartment_id INTEGER NOT NULL REFERENCES apartments(id),
-      doc_type TEXT NOT NULL,
-      document_url TEXT,
-      verification_status TEXT DEFAULT 'pending',
-      created_at DATETIME DEFAULT CURRENT_TIMESTAMP
-    )`)
-
-    db.run(`CREATE TABLE IF NOT EXISTS reviews (
-      id INTEGER PRIMARY KEY AUTOINCREMENT,
-      verification_id INTEGER NOT NULL REFERENCES verifications(id),
-      rating_overall REAL NOT NULL,
-      rating_safety REAL,
-      rating_management REAL,
-      title TEXT NOT NULL,
-      review_text TEXT NOT NULL,
-      created_at DATETIME DEFAULT CURRENT_TIMESTAMP
-    )`)
-
-    db.run(`CREATE TABLE IF NOT EXISTS email_tokens (
-      id INTEGER PRIMARY KEY AUTOINCREMENT,
-      user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
-      token TEXT NOT NULL UNIQUE,
-      created_at DATETIME DEFAULT CURRENT_TIMESTAMP
-    )`)
-
-    db.run(`CREATE TABLE IF NOT EXISTS apartment_photos (
-      id INTEGER PRIMARY KEY AUTOINCREMENT,
-      apartment_id INTEGER NOT NULL REFERENCES apartments(id) ON DELETE CASCADE,
-      photo_data TEXT NOT NULL,
-      display_order INTEGER DEFAULT 0,
-      created_at DATETIME DEFAULT CURRENT_TIMESTAMP
-    )`)
-
-    db.run(`CREATE TABLE IF NOT EXISTS saved_apartments (
-      id INTEGER PRIMARY KEY AUTOINCREMENT,
-      user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
-      apartment_id INTEGER NOT NULL REFERENCES apartments(id) ON DELETE CASCADE,
-      created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
-      UNIQUE(user_id, apartment_id)
-    )`)
-
-    db.run(`CREATE TABLE IF NOT EXISTS review_votes (
-      id INTEGER PRIMARY KEY AUTOINCREMENT,
-      review_id INTEGER NOT NULL REFERENCES reviews(id) ON DELETE CASCADE,
-      user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
-      created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
-      UNIQUE(review_id, user_id)
-    )`)
-
-    db.run(`CREATE TABLE IF NOT EXISTS review_replies (
-      id INTEGER PRIMARY KEY AUTOINCREMENT,
-      review_id INTEGER NOT NULL REFERENCES reviews(id) ON DELETE CASCADE,
-      landlord_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
-      reply_text TEXT NOT NULL,
-      created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
-      UNIQUE(review_id)
-    )`)
-
-    db.run(`CREATE TABLE IF NOT EXISTS review_photos (
-      id INTEGER PRIMARY KEY AUTOINCREMENT,
-      review_id INTEGER NOT NULL REFERENCES reviews(id) ON DELETE CASCADE,
-      photo_data TEXT NOT NULL,
-      created_at DATETIME DEFAULT CURRENT_TIMESTAMP
-    )`)
-
-    db.run(`CREATE TABLE IF NOT EXISTS review_flags (
-      id INTEGER PRIMARY KEY AUTOINCREMENT,
-      review_id INTEGER NOT NULL REFERENCES reviews(id) ON DELETE CASCADE,
-      user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
-      reason TEXT NOT NULL,
-      created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
-      UNIQUE(review_id, user_id)
-    )`)
-
-    db.run(`CREATE TABLE IF NOT EXISTS apartment_views (
-      id INTEGER PRIMARY KEY AUTOINCREMENT,
-      apartment_id INTEGER NOT NULL REFERENCES apartments(id) ON DELETE CASCADE,
-      user_id INTEGER REFERENCES users(id) ON DELETE SET NULL,
-      viewed_at DATETIME DEFAULT CURRENT_TIMESTAMP
-    )`)
-
+  // Load schema from the canonical database.sql file at the project root
+  const schemaPath = path.join(__dirname, '..', 'database.sql')
+  const schema = fs.readFileSync(schemaPath, 'utf8')
+  db.exec(schema, (err) => {
+    if (err) console.error('❌ Schema error:', err)
+    else console.log('✅ Schema loaded from database.sql')
   })
 }
 
