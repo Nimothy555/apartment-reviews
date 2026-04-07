@@ -179,7 +179,7 @@ router.get('/verify/:token', async (req, res) => {
   }
 })
 
-// POST /auth/resend-verification
+// POST /auth/resend-verification (requires auth token)
 router.post('/resend-verification', requireAuth, async (req, res) => {
   try {
     const user = await db.getAsync('SELECT id, email, is_verified FROM users WHERE id = ?', [req.user.id])
@@ -194,6 +194,29 @@ router.post('/resend-verification', requireAuth, async (req, res) => {
     await db.runAsync('INSERT INTO email_tokens (user_id, token) VALUES (?, ?)', [req.user.id, token])
     await sendVerificationEmail(user.email, token).catch(e => console.error('Email error:', e))
     res.json({ message: 'Verification email sent' })
+  } catch (err) {
+    res.status(500).json({ error: 'Failed to resend verification email' })
+  }
+})
+
+// POST /auth/resend-verification-by-email (no auth required — for unverified users on login page)
+router.post('/resend-verification-by-email', async (req, res) => {
+  const { email } = req.body
+  if (!email || !isValidEmail(email)) return res.status(400).json({ error: 'A valid email is required' })
+  try {
+    const user = await db.getAsync('SELECT id, email, is_verified FROM users WHERE email = ?', [email.toLowerCase().trim()])
+    // Always respond success to avoid user enumeration
+    if (!user || user.is_verified) return res.json({ message: 'If that email exists and is unverified, a new link has been sent.' })
+    const existing = await db.getAsync('SELECT created_at FROM email_tokens WHERE user_id = ?', [user.id])
+    if (existing) {
+      const age = Date.now() - new Date(existing.created_at).getTime()
+      if (age < 60 * 1000) return res.json({ message: 'If that email exists and is unverified, a new link has been sent.' })
+    }
+    await db.runAsync('DELETE FROM email_tokens WHERE user_id = ?', [user.id])
+    const token = crypto.randomBytes(32).toString('hex')
+    await db.runAsync('INSERT INTO email_tokens (user_id, token) VALUES (?, ?)', [user.id, token])
+    await sendVerificationEmail(user.email, token).catch(e => console.error('Resend email error:', e))
+    res.json({ message: 'If that email exists and is unverified, a new link has been sent.' })
   } catch (err) {
     res.status(500).json({ error: 'Failed to resend verification email' })
   }

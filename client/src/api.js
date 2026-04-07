@@ -90,6 +90,7 @@ export const api = {
   getMe: () => request('/auth/me'),
   verifyEmail: (token) => request(`/auth/verify/${token}`),
   resendVerification: () => request('/auth/resend-verification', { method: 'POST' }),
+  resendVerificationByEmail: (email) => request('/auth/resend-verification-by-email', { method: 'POST', body: JSON.stringify({ email }) }),
   forgotPassword: (email) => request('/auth/forgot-password', { method: 'POST', body: JSON.stringify({ email }) }),
   resetPassword: (token, password) => request(`/auth/reset-password/${token}`, { method: 'POST', body: JSON.stringify({ password }) }),
 
