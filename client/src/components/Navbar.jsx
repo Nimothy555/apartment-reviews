@@ -20,10 +20,8 @@ export default function Navbar() {
           <Link to="/">Browse</Link>
           {user ? (
             <>
-              {user.role === 'landlord' && <Link to="/add">+ Add Listing</Link>}
-              {user.role === 'landlord' && <Link to="/my-listings">My Listings</Link>}
-              {user.role !== 'landlord' && <Link to="/dashboard">Dashboard</Link>}
-              {user.role !== 'landlord' && <Link to="/saved">Saved</Link>}
+              <Link to="/dashboard">Dashboard</Link>
+              <Link to="/saved">Saved</Link>
               <Link to="/profile">My Profile</Link>
               <button onClick={handleLogout} className="btn-link">Logout</button>
             </>

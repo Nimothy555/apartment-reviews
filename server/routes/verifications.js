@@ -21,7 +21,6 @@ const anthropic = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY })
 const DOC_TYPE_LABELS = {
   lease: 'lease agreement',
   utility_bill: 'utility bill',
-  postal_mail: 'piece of postal mail'
 }
 
 function normalizeAddress(str) {

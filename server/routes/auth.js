@@ -5,7 +5,7 @@ const jwt = require('jsonwebtoken')
 const crypto = require('crypto')
 const db = require('../db')
 const { requireAuth } = require('../middleware/auth')
-const { sendVerificationEmail } = require('../email')
+const { sendVerificationEmail, sendPasswordResetEmail } = require('../email')
 
 const JWT_SECRET = process.env.JWT_SECRET || 'dev-secret'
 const JWT_EXPIRES = '7d'
@@ -41,7 +41,8 @@ function signToken(user) {
 
 // POST /auth/register
 router.post('/register', async (req, res) => {
-  const { first_name, last_name, email, password, role } = req.body
+  const { first_name, last_name, email, password } = req.body
+  const role = 'renter'
   const errors = []
   if (!first_name || typeof first_name !== 'string' || first_name.trim().length === 0) errors.push('First name is required')
   if (first_name && first_name.trim().length > 100) errors.push('First name must be under 100 characters')
@@ -51,7 +52,7 @@ router.post('/register', async (req, res) => {
   if (!password) errors.push('Password is required')
   if (password && password.length < 8) errors.push('Password must be at least 8 characters')
   if (password && password.length > 128) errors.push('Password must be under 128 characters')
-  if (!role || !['renter', 'landlord'].includes(role)) errors.push('Role must be renter or landlord')
+  // Role is always 'renter' — landlord portal removed
   if (errors.length > 0) return res.status(400).json({ errors })
 
   const ip = req.ip || 'unknown'
@@ -100,6 +101,10 @@ router.post('/login', async (req, res) => {
 
     const match = await bcrypt.compare(password, user.password)
     if (!match) return res.status(401).json({ error: 'Invalid email or password' })
+
+    if (!user.is_verified) {
+      return res.status(403).json({ error: 'Please verify your email before logging in. Check your inbox for the verification link.' })
+    }
 
     clearAttempts(`login:${ip}`)
     const token = signToken(user)
@@ -191,6 +196,59 @@ router.post('/resend-verification', requireAuth, async (req, res) => {
     res.json({ message: 'Verification email sent' })
   } catch (err) {
     res.status(500).json({ error: 'Failed to resend verification email' })
+  }
+})
+
+// POST /auth/forgot-password
+router.post('/forgot-password', async (req, res) => {
+  const { email } = req.body
+  if (!email || !isValidEmail(email)) return res.status(400).json({ error: 'A valid email is required' })
+
+  try {
+    const user = await db.getAsync('SELECT id FROM users WHERE email = ?', [email.toLowerCase().trim()])
+    // Always respond success to avoid email enumeration
+    if (!user) return res.json({ message: 'If that email exists, a reset link has been sent.' })
+
+    // Rate-limit: one reset email per 60 seconds
+    const existing = await db.getAsync('SELECT created_at FROM password_reset_tokens WHERE user_id = ?', [user.id])
+    if (existing) {
+      const age = Date.now() - new Date(existing.created_at).getTime()
+      if (age < 60 * 1000) return res.json({ message: 'If that email exists, a reset link has been sent.' })
+      await db.runAsync('DELETE FROM password_reset_tokens WHERE user_id = ?', [user.id])
+    }
+
+    const token = crypto.randomBytes(32).toString('hex')
+    await db.runAsync('INSERT INTO password_reset_tokens (user_id, token) VALUES (?, ?)', [user.id, token])
+    await sendPasswordResetEmail(email.toLowerCase().trim(), token).catch(e => console.error('Reset email error:', e))
+    res.json({ message: 'If that email exists, a reset link has been sent.' })
+  } catch (err) {
+    res.status(500).json({ error: 'Failed to process request' })
+  }
+})
+
+// POST /auth/reset-password/:token
+router.post('/reset-password/:token', async (req, res) => {
+  const { token } = req.params
+  const { password } = req.body
+  if (!password || password.length < 8) return res.status(400).json({ error: 'Password must be at least 8 characters' })
+  if (password.length > 128) return res.status(400).json({ error: 'Password must be under 128 characters' })
+
+  try {
+    const record = await db.getAsync('SELECT * FROM password_reset_tokens WHERE token = ?', [token])
+    if (!record) return res.status(400).json({ error: 'Invalid or expired reset link' })
+
+    const age = Date.now() - new Date(record.created_at).getTime()
+    if (age > 60 * 60 * 1000) {
+      await db.runAsync('DELETE FROM password_reset_tokens WHERE token = ?', [token])
+      return res.status(400).json({ error: 'Reset link has expired. Please request a new one.' })
+    }
+
+    const hashed = await bcrypt.hash(password, 10)
+    await db.runAsync('UPDATE users SET password = ? WHERE id = ?', [hashed, record.user_id])
+    await db.runAsync('DELETE FROM password_reset_tokens WHERE token = ?', [token])
+    res.json({ message: 'Password reset successfully. You can now log in.' })
+  } catch (err) {
+    res.status(500).json({ error: 'Failed to reset password' })
   }
 })
 

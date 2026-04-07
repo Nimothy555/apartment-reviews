@@ -80,6 +80,13 @@ CREATE TABLE IF NOT EXISTS email_tokens (
   created_at  DATETIME DEFAULT CURRENT_TIMESTAMP
 );
 
+CREATE TABLE IF NOT EXISTS password_reset_tokens (
+  id          INTEGER  PRIMARY KEY AUTOINCREMENT,
+  user_id     INTEGER  NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+  token       TEXT     NOT NULL UNIQUE,
+  created_at  DATETIME DEFAULT CURRENT_TIMESTAMP
+);
+
 -- ── Photos ────────────────────────────────────────────────────
 
 CREATE TABLE IF NOT EXISTS apartment_photos (

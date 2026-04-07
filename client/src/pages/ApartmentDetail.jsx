@@ -7,7 +7,6 @@ import StarRating from '../components/StarRating'
 const DOC_TYPE_OPTIONS = [
   { value: 'lease', label: 'Lease Agreement' },
   { value: 'utility_bill', label: 'Utility Bill' },
-  { value: 'postal_mail', label: 'Postal Mail' },
 ]
 
 const PROPERTY_TYPES = ['Apartment', 'Loft', 'Townhouse', 'Studio', 'Condo', 'House']

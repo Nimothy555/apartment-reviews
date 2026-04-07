@@ -28,7 +28,7 @@ export default function Login() {
     <div className="page">
       <div className="auth-container">
         <h1>Welcome back</h1>
-        <p className="text-muted">Log in to leave reviews and add listings.</p>
+        <p className="text-muted">Log in to browse and leave verified reviews.</p>
 
         {error && <div className="error-msg">{error}</div>}
 
@@ -46,6 +46,9 @@ export default function Login() {
           <button type="submit" className="btn btn-full" disabled={loading}>
             {loading ? 'Logging in...' : 'Log In'}
           </button>
+          <p style={{ textAlign: 'center', fontSize: '0.85rem' }}>
+            <Link to="/forgot-password">Forgot your password?</Link>
+          </p>
         </form>
 
         <p className="auth-switch">Don't have an account? <Link to="/register">Sign up</Link></p>
