@@ -26,21 +26,32 @@ const DOC_TYPE_LABELS = {
 }
 
 function normalizeAddress(str) {
-  return str.toLowerCase().replace(/[.,#\-]/g, ' ').replace(/\s+/g, ' ').trim()
+  return str.toLowerCase()
+    .replace(/\b(apt|unit|suite|ste|#|no\.?|apartment)\b[\s\d\w]*/gi, '') // strip unit/apt numbers
+    .replace(/[.,#\-]/g, ' ')
+    .replace(/\s+/g, ' ')
+    .trim()
+}
+
+function extractStreetCore(str) {
+  // Extract just the street number + street name (first meaningful part)
+  const norm = normalizeAddress(str)
+  return norm.split(',')[0].trim()
 }
 
 function addressesMatch(extracted, apartment) {
-  const extNorm = normalizeAddress(extracted)
-  const streetNorm = normalizeAddress(apartment.street_address)
+  const extCore = extractStreetCore(extracted)
+  const streetCore = extractStreetCore(apartment.street_address)
   const cityNorm = normalizeAddress(apartment.city)
-  const fullNorm = normalizeAddress(
-    `${apartment.street_address} ${apartment.city} ${apartment.state} ${apartment.zip_code}`
-  )
-  return (
-    extNorm.includes(streetNorm) ||
-    fullNorm.includes(extNorm) ||
-    (extNorm.includes(streetNorm) && extNorm.includes(cityNorm))
-  )
+  const zipNorm = apartment.zip_code?.trim()
+
+  // Match if extracted street core includes the apartment's street address
+  const streetMatch = extCore.includes(streetCore) || streetCore.includes(extCore)
+  // Bonus: also check city or zip match for confidence
+  const cityMatch = normalizeAddress(extracted).includes(cityNorm)
+  const zipMatch = zipNorm && extracted.includes(zipNorm)
+
+  return streetMatch || (cityMatch && zipMatch)
 }
 
 // POST /verifications
@@ -97,7 +108,7 @@ router.post('/', requireAuth, upload.single('document'), async (req, res) => {
             contentBlock,
             {
               type: 'text',
-              text: `This is a ${DOC_TYPE_LABELS[doc_type]}. Extract the property or mailing address from this document. Return ONLY the address in the format: "street, city, state zip". If no clear address is found, return exactly: NOT_FOUND`
+              text: `This is a ${DOC_TYPE_LABELS[doc_type]}. Extract the property or mailing address labeled as "Street Address" or the primary residence address. Ignore unit/apartment numbers. Return ONLY the street address in the format: "street, city, state zip". If no clear address is found, return exactly: NOT_FOUND`
             }
           ]
         }]
