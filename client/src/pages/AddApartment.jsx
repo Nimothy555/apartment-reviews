@@ -19,11 +19,6 @@ export default function AddApartment() {
     return null
   }
 
-  if (user.role !== 'landlord') {
-    navigate('/')
-    return null
-  }
-
   const handleSubmit = async (e) => {
     e.preventDefault()
     setError('')

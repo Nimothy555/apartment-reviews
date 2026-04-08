@@ -207,7 +207,6 @@ router.get('/:id', optionalAuth, async (req, res) => {
 
 // POST /apartments
 router.post('/', requireAuth, async (req, res) => {
-  if (req.user.role !== 'landlord') return res.status(403).json({ error: 'Only landlords can add listings' })
 
   const { name, street_address, city, state, zip_code, property_type, year_built } = req.body
 

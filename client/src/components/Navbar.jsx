@@ -21,6 +21,7 @@ export default function Navbar() {
           {user ? (
             <>
               <Link to="/dashboard">Dashboard</Link>
+              <Link to="/add">Add Listing</Link>
               <Link to="/saved">Saved</Link>
               <Link to="/profile">My Profile</Link>
               <button onClick={handleLogout} className="btn-link">Logout</button>
