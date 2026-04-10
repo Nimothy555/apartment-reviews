@@ -5,7 +5,11 @@ const Anthropic = require('@anthropic-ai/sdk')
 const db = require('../db')
 const { requireAuth } = require('../middleware/auth')
 
-const ALLOWED_MIMETYPES = ['image/jpeg', 'image/png', 'image/gif', 'image/webp', 'application/pdf']
+const ALLOWED_MIMETYPES = [
+  'image/jpeg', 'image/png', 'image/gif', 'image/webp',
+  'application/pdf',
+  'application/vnd.openxmlformats-officedocument.wordprocessingml.document'
+]
 
 const upload = multer({
   storage: multer.memoryStorage(),
@@ -92,36 +96,41 @@ router.post('/', requireAuth, upload.single('document'), async (req, res) => {
     const mediaType = req.file.mimetype
 
     let extractedAddress = null
-    let verificationStatus = 'verified' // Default to verified when AI is unavailable
+    let verificationStatus = 'pending'
 
-    try {
-      const contentBlock = mediaType === 'application/pdf'
-        ? { type: 'document', source: { type: 'base64', media_type: 'application/pdf', data: base64Image } }
-        : { type: 'image', source: { type: 'base64', media_type: mediaType, data: base64Image } }
+    const isDocx = mediaType === 'application/vnd.openxmlformats-officedocument.wordprocessingml.document'
 
-      const response = await anthropic.messages.create({
-        model: 'claude-sonnet-4-6',
-        max_tokens: 256,
-        messages: [{
-          role: 'user',
-          content: [
-            contentBlock,
-            {
-              type: 'text',
-              text: `This is a ${DOC_TYPE_LABELS[doc_type]}. Extract the property or mailing address labeled as "Street Address" or the primary residence address. Ignore unit/apartment numbers. Return ONLY the street address in the format: "street, city, state zip". If no clear address is found, return exactly: NOT_FOUND`
-            }
-          ]
-        }]
-      })
+    if (!isDocx) {
+      try {
+        const contentBlock = mediaType === 'application/pdf'
+          ? { type: 'document', source: { type: 'base64', media_type: 'application/pdf', data: base64Image } }
+          : { type: 'image', source: { type: 'base64', media_type: mediaType, data: base64Image } }
 
-      extractedAddress = response.content[0]?.text?.trim()
+        const response = await anthropic.messages.create({
+          model: 'claude-sonnet-4-6',
+          max_tokens: 256,
+          messages: [{
+            role: 'user',
+            content: [
+              contentBlock,
+              {
+                type: 'text',
+                text: `This is a ${DOC_TYPE_LABELS[doc_type]}. Extract the property or mailing address labeled as "Street Address" or the primary residence address. Ignore unit/apartment numbers. Return ONLY the street address in the format: "street, city, state zip". If no clear address is found, return exactly: NOT_FOUND`
+              }
+            ]
+          }]
+        })
 
-      if (extractedAddress && extractedAddress !== 'NOT_FOUND') {
-        verificationStatus = addressesMatch(extractedAddress, apartment) ? 'verified' : 'failed'
+        extractedAddress = response.content[0]?.text?.trim()
+
+        if (!extractedAddress || extractedAddress === 'NOT_FOUND') {
+          verificationStatus = 'failed'
+        } else {
+          verificationStatus = addressesMatch(extractedAddress, apartment) ? 'verified' : 'failed'
+        }
+      } catch (claudeErr) {
+        console.error('Claude API error:', claudeErr.message)
       }
-    } catch (claudeErr) {
-      console.error('Claude API error:', claudeErr.message)
-      // Store as failed if Claude is unavailable
     }
 
     // Store document as base64 data URL

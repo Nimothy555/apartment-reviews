@@ -32,6 +32,8 @@ function VerificationStep({ apartment, onVerified }) {
       const result = await api.createVerification(formData)
       if (result.verification_status === 'verified') {
         onVerified(result.id)
+      } else if (result.verification_status === 'pending') {
+        setStatus('pending')
       } else {
         setStatus('failed')
       }
@@ -48,6 +50,11 @@ function VerificationStep({ apartment, onVerified }) {
         Upload a document showing your address at <strong>{apartment.street_address}, {apartment.city}</strong> to post a review.
       </p>
 
+      {status === 'pending' && (
+        <div className="info-msg">
+          Your document has been submitted and is under review by our moderation team. You'll be able to post a review once it's approved.
+        </div>
+      )}
       {status === 'failed' && (
         <div className="error-msg">
           Address on document didn't match the apartment address. Please try a different document.
@@ -70,7 +77,7 @@ function VerificationStep({ apartment, onVerified }) {
           <label>Upload Document
             <input
               type="file"
-              accept="image/*"
+              accept="image/*,application/pdf,.pdf,.docx,application/vnd.openxmlformats-officedocument.wordprocessingml.document"
               className="input"
               onChange={e => setFile(e.target.files[0] || null)}
               required

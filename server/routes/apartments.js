@@ -40,13 +40,13 @@ router.get('/', async (req, res) => {
     const params = []
 
     if (search) {
-      conditions.push('(a.name LIKE ? OR a.street_address LIKE ? OR a.city LIKE ? OR a.zip_code LIKE ?)')
+      conditions.push('(LOWER(a.name) LIKE LOWER(?) OR LOWER(a.street_address) LIKE LOWER(?) OR LOWER(a.city) LIKE LOWER(?) OR a.zip_code LIKE ?)')
       const term = `%${search}%`
       params.push(term, term, term, term)
     }
 
     if (property_type) {
-      conditions.push('a.property_type = ?')
+      conditions.push('LOWER(a.property_type) = LOWER(?)')
       params.push(property_type)
     }
 
